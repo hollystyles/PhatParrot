@@ -1,6 +1,6 @@
 //************************************************************
 //	Game:		Phat Parrot
-//  Author:		paulalcon@yahoo.co.uk
+//  Author:		styles.holly@googlemail.com
 //  Date:		2014-03-06
 //
 //	Credits:	Based on 'Flappy Bird' created by Dong Nguyen 
@@ -32,16 +32,17 @@ function initGame(){
 //		3. Coordinating updates and drawing.
 function Game(context){
 	
+	var INITIAL_SPEED = 80
+	var game = this;					//Reference to this game instance.
+	
 	//Public properties
-	this.ctx = context;				//The canvas 2d drawing context.
-	this.assets = setUpAssets(this);//The array of game objects.
-	this.paused = false;			//Game paused flag.
-	this.timer = null;				//Game loop timer.
-	this.loopInterval = 80;			//Loop interval in milliseconds.
+	this.ctx = context;					//The canvas 2d drawing context.
+	this.assets = setUpAssets(this);	//The array of game objects.
+	this.paused = false;				//Game paused flag.
+	this.timer = null;					//Game loop timer.
+	this.loopInterval = INITIAL_SPEED;	//Loop interval in milliseconds.
 	
-	var game = this;				//Reference to this game instance.
-	
-	bindKeys(game);					//Set up keydown event listener.
+	bindKeys(game);						//Set up keydown event listener.
 	
 	//Starts the game loop
 	this.run = function(){
@@ -70,6 +71,11 @@ function Game(context){
 		}
 	}
 	
+	this.resetGame = function(){
+		game.paused = false;
+		setGameSpeed(INITIAL_SPEED);
+	}
+	
 	//Update game state.
 	function update(game){
 		//Iterate all game objects.
@@ -81,6 +87,8 @@ function Game(context){
 	
 	//Draw everything to the screen.
 	function draw(game){
+		//Clear the drawing context of all drawn objects.
+		game.ctx.clearRect(0, 0, this.w, this.h);
 		//Iterate all game objects.
 		for(var i = 0; i < game.assets.length; i++){
 			//Request each asset draws itself to the screen.
@@ -102,7 +110,7 @@ function Game(context){
 		var assets = [];
 		
 		//Push assets onto the array.
-		assets.push(new Background(game));		//Add a background.
+		assets.push(new Levels(game));		//Add a background.
 		assets.push(new Sprite(game));			//Add Phat Parrot.
 		assets.push(new Gates(game));			//Add the gate obstacles.
 		assets.push(new Stats(game));			//Add a stats object.
@@ -126,6 +134,8 @@ function Game(context){
 			} else if ( e.keyCode == 187){		//187 + was pressed
 				game.speedUp();
 				
+			} else if ( e.keyCode == 82 ){		//82 R was pressed.
+				game.resetGame();
 			}
 			
 			//Iterate all assets
@@ -137,17 +147,20 @@ function Game(context){
 	}
 }
 
-//A game asset for the background game image.
-function Background(game){
+//A game asset for the levels in teh game.
+function Levels(game){
+	
+	var GATES_PER_LEVEL = 20;
 	
 	this.x = 0;							//Background x coordinate.
 	this.y = 0;							//Background y coordinate.
 	this.w = game.ctx.canvas.width;		//Background width.
 	this.h = game.ctx.canvas.height;	//Background height.
 	this.levelFrames = [];
-	this.bgImageNames = ["jungle.png", "peru.png"];
+	this.bgImageNames = ["jungle.png", "inca.png", "desert.png", "peru.png"];
 	this.levelIndex = 0;
-	this.levelledUp = false;
+	this.level = 1;
+	this.leveledUp = false;
 	
 	for(var i = 0; i < this.bgImageNames.length; i++){
 		var img = new Image();
@@ -155,38 +168,50 @@ function Background(game){
 		this.levelFrames.push(img);
 	}
 	
+	var levels = this;
+	
 	//All game asset objects must have an update function.
 	this.update = function(game){
-		//Clear the drawing context of all drawn objects.
-		game.ctx.clearRect(0, 0, this.w, this.h);
-		var stats = game.assets[3];									//Get a reference to stats
-		var info = game.assets[4];									//Get reference to info
-		if(stats.score > 0){
-			if((stats.score % 10) == 0  && !this.levelledUp){		//Level up every ten gatesr
-				this.levelIndex = (this.levelIndex == 0) ? 1 : 0;
-				this.levelledUp = true;
-				game.speedUp();
-				info.text = "Level Up";
-				info.visible = true;
-			} else if((stats.score % 10) == 1){
-				this.levelledUp = false;
-				info.text.visible = false;
+	
+		var stats = game.assets[3];
+		
+		if(levels.levelIndex < (levels.levelFrames.length)
+			&& stats.score > 0){
+			
+			if(!levels.leveledUp
+				&& stats.score % GATES_PER_LEVEL == 0){	
+				
+				levels.levelIndex++;
+				levels.level++;
+				levels.leveledUp = true;
+				
+			} else if ( stats.score % GATES_PER_LEVEL == 1){
+			
+				levels.leveledUp = false;
+				
 			}
+		} else {
+			levels.levelIndex = 0;
 		}
-	};
+		
+		//if(levels.level % levels.levelFrames.length == 0){
+		//	game.speedUp();
+		//}
+	}
 	
 	//All game asset objects must have a draw function.
 	this.draw = function(game){
 		//Draw the background image to the screen.
-		game.ctx.drawImage(this.levelFrames[this.levelIndex], this.x, this.y);
+		game.ctx.drawImage(levels.levelFrames[levels.levelIndex], this.x, this.y);
 	};
 	
 	//All game asset objects must have a receiveKey function.
 	this.receiveKey = function(keyCode, game){
 		if(keyCode == 82){
-			this.levelIndex = 0;
+			levels.levelIndex = 0;
 		}
 	}
+	
 }
 
 //A game asset for the main sprite. Our parrot hero!
@@ -328,11 +353,11 @@ function Gates(game){
 		
 		for(var i = 0; i < NUM_GATES; i++){											//Iterate the array of gates.
 			var gate = this.gateArray[i];											//Pull current gate from the array.
-			if(!this.collision && gate.x < (game.ctx.canvas.width / 2) && !gate.statsd){
+			if(!this.collision && gate.x < (game.ctx.canvas.width / 2) && !gate.scored){
 																					//If we haven't collided with phat parrot 
 																					//and have gone passed him on the screen.
 				stats.score++;														//Up the stats.
-				gate.statsd = true;													//Mark this gate as statsd.
+				gate.scored = true;													//Mark this gate as statsd.
 			}
 			
 			if(this.started){
@@ -363,7 +388,7 @@ function Gates(game){
 			
 			if(gate.x <= (0 - gate.w)){												//If the gate has passed the left edge of the screen.
 				
-				gate.statsd = false;												//Reset statsd flag ready for next pass.
+				gate.scored = false;												//Reset statsd flag ready for next pass.
 				gate.x = game.ctx.canvas.width + (GATE_INTERVAL - GATE_WIDTH);			//Set it's position back to the right hand side of the canvas.
 				randomizeLength(gate);												//Give the gate a new random length.
 				
@@ -438,7 +463,7 @@ function Gates(game){
 		this.w = 0;				//Gate's width in pixels.
 		this.th = 0;			//Top gate height in pixels.
 		this.bh = 0;			//Bottom gate height
-		this.statsd = false;	//Flag if gate passed parrot with no collision.
+		this.scored = false;	//Flag if gate passed parrot with no collision.
 		
 	}
 }
@@ -446,25 +471,31 @@ function Gates(game){
 //A game asset representing the players stats.
 function Stats(game){
 
-	this.score = 0;						//Initialise stats to 0.
-	this.x = ((game.ctx.canvas.width / 2) - 150);	//Set stats to middle of screen horizontaly.
-	this.y = 5;							//Set stats 5 pixels down from top of screen.
-	this.highScore = 0;
+	this.score = 0;									//Initialise stats to 0.
+	this.x = ((game.ctx.canvas.width / 2) - 225);	//Set stats to middle of screen horizontaly.
+	this.y = 5;										//Set stats 5 pixels down from top of screen.
+	this.highScore = 0;								//Track highest score
 	
-	var stats = this;
+	var stats = this;								//Declare a local reference
 	
 	//All game asset objects must have an update function.
 	this.update = function(game){
-		//Do nothing, gates will update the stats each time they pass parrot successfully.
+		var gates = game.assets[2];
+		for(var i = 0; i < gates.gateArray.length; i++){
+			var gate = gates.gateArray[i];
+			//if gate passed centre and not scored, up the score.
+		}
 	}
 	
 	//All game asset objects must have a  draw function.
 	this.draw = function(game){
+		var levels = game.assets[0];
 		game.ctx.font = '36px arial';			//Set font size and family.
 		game.ctx.strokeStyle = '#000';			//Set outline colour.
 		game.ctx.fillStyle = '#FFF';				//Set fill colour.
 		game.ctx.textBaseline = "top";					//Draw stats aligned to top.
 		var text = "FPS: " + (Math.floor(1000/game.loopInterval)) 
+					+ " Lvl: " + (levels.level)
 					+ " Score: " + stats.score 
 					+ " HS: " + stats.highScore;
 		game.ctx.fillText(text, stats.x, stats.y);	//Draw stats to screen.
