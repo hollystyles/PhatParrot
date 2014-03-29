@@ -9,7 +9,7 @@
 
 //Globals
 //No global variables !! Global variables bad, 'k?
-
+var game;
 //Initialisation, this is the main function or the entry point to the programme.
 //This is called from the body tags onload event in the index.html web-page.
 function initGame(){
@@ -19,7 +19,7 @@ function initGame(){
 	var context = canvas.getContext('2d');
 	
 	//Pass the context and assets to a new game instance.
-	var game = new Game(context);
+	game = new Game(context);
 	
 	//Start the game.
 	game.run();
@@ -69,6 +69,10 @@ function Game(context){
 		if(game.loopInterval < 140){
 			setGameSpeed(game.loopInterval + 20) //Increase loop interval by 20 milliseconds
 		}
+	}
+	
+	this.fps = function(){
+		return (Math.floor(1000 / game.loopInterval));
 	}
 	
 	this.resetGame = function(){
@@ -150,7 +154,7 @@ function Game(context){
 //A game asset for the levels in teh game.
 function Levels(game){
 	
-	var GATES_PER_LEVEL = 20;
+	var GATES_PER_LEVEL = 5;
 	
 	this.x = 0;							//Background x coordinate.
 	this.y = 0;							//Background y coordinate.
@@ -184,6 +188,7 @@ function Levels(game){
 				levels.levelIndex++;
 				levels.level++;
 				levels.leveledUp = true;
+				game.assets[4].toast("Level " + levels.level, 3);
 				
 			} else if ( stats.score % GATES_PER_LEVEL == 1){
 			
@@ -209,6 +214,7 @@ function Levels(game){
 	this.receiveKey = function(keyCode, game){
 		if(keyCode == 82){
 			levels.levelIndex = 0;
+			levels.level = 1;
 		}
 	}
 	
@@ -325,7 +331,7 @@ function Sprite(game){
 function Gates(game){
 	
 	var MIN_GATE_HEIGHT = 50;				//Minimum height for the top gate.
-	var GAP_SIZE 		= 120;				//Gap size between gates for parrot to squeeze through.
+	var GAP_SIZE 		= 150;				//Gap size between gates for parrot to squeeze through.
 	var NUM_GATES		= 4;				//Number of gates to cycle across the screen.
 	var GATE_INTERVAL 	= 200;				//Distance between each gate.
 	var GATE_WIDTH = 36;					//Width of gate image in pixels.
@@ -350,6 +356,9 @@ function Gates(game){
 	this.update = function(game){
 		var sprite = game.assets[1];														//Get a reference to Phat Parrot.
 		var stats = game.assets[3];														//Get a reference to the stats.
+		var levels = game.assets[0];
+		
+		GAP_SIZE = (150 - (levels.level * 5));
 		
 		for(var i = 0; i < NUM_GATES; i++){											//Iterate the array of gates.
 			var gate = this.gateArray[i];											//Pull current gate from the array.
@@ -411,6 +420,7 @@ function Gates(game){
 		if(keyCode == 82){
 			this.collision = false;
 			this.started = false;
+			GAP_SIZE = 150;
 			resetGates(game.ctx);
 		} else if(keyCode == 70){
 			this.started = true;
@@ -472,7 +482,7 @@ function Gates(game){
 function Stats(game){
 
 	this.score = 0;									//Initialise stats to 0.
-	this.x = ((game.ctx.canvas.width / 2) - 225);	//Set stats to middle of screen horizontaly.
+	this.x = ((game.ctx.canvas.width / 2) - 240);	//Set stats to middle of screen horizontaly.
 	this.y = 5;										//Set stats 5 pixels down from top of screen.
 	this.highScore = 0;								//Track highest score
 	
@@ -494,10 +504,12 @@ function Stats(game){
 		game.ctx.strokeStyle = '#000';			//Set outline colour.
 		game.ctx.fillStyle = '#FFF';				//Set fill colour.
 		game.ctx.textBaseline = "top";					//Draw stats aligned to top.
-		var text = "FPS: " + (Math.floor(1000/game.loopInterval)) 
+		var text = "FPS: " + game.fps() 
 					+ " Lvl: " + (levels.level)
 					+ " Score: " + stats.score 
 					+ " HS: " + stats.highScore;
+		var width = game.ctx.measureText(text).width;
+		stats.x = (game.ctx.canvas.width / 2) - Math.floor(width / 2);
 		game.ctx.fillText(text, stats.x, stats.y);	//Draw stats to screen.
 		game.ctx.strokeText(text, stats.x, stats.y);	//Draw stats outline.
 	}
@@ -522,12 +534,18 @@ function InfoScreen(game){
 	this.y = 125;
 	this.text = startText;
 	this.visible = true;
+	this.countdown = -1;
 	
 	this.update = function(game){
 		var sprite = game.assets[1];
 		if(sprite.dead){
 			this.text = endText;
 			this.visible = true;
+		} else if (this.countdown > 0){
+			this.countdown--;
+		} else if(this.countdown == 0){
+			this.countdown = -1;
+			this.visible = false;
 		}
 	}
 	
@@ -536,18 +554,26 @@ function InfoScreen(game){
 			game.ctx.font = '36px arial';			//Set font size and family.
 			game.ctx.strokeStyle = '#000';			//Set outline colour.
 			game.ctx.fillStyle = 'red';				//Set fill colour.
+			var width = game.ctx.measureText(this.text).width;
+			this.x = (game.ctx.canvas.width / 2) - Math.floor(width / 2);
 			game.ctx.fillText(this.text, this.x, this.y)
 			game.ctx.strokeText(this.text, this.x, this.y);
 		}
 	}
 	
 	this.receiveKey = function(keyCode, game){
-		if(keyCode == 70){
+		if(keyCode == 70 && this.countdown < 0){
 			this.visible = false;
 		} else if (keyCode == 82){					//R was pressed
 			this.visible = true;
 			this.text = startText;
 		}
+	}
+	
+	this.toast = function(msg, duration){
+		this.countdown = (duration * game.fps());
+		this.text = msg;
+		this.visible = true;
 	}
 }
 
