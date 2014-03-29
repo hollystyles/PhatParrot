@@ -223,6 +223,10 @@ function Levels(game){
 //A game asset for the main sprite. Our parrot hero!
 function Sprite(game){
 	
+	var FLAP = 0
+	var SQUELCH = 1;
+	var FAIL = 2;
+	
 	this.x = 0;											//Phat Parrot's x coordinate.
 	this.y = 0;											//Phat Parrot's y coordinate.
 	this.vy = 0;										//Phat Parrot's vertical velocity in pixels.
@@ -234,8 +238,18 @@ function Sprite(game){
 	this.dead = false;									//That sir is a dead parrot!
 	this.immune = false;								//Phat Parrot can fly through solid objects when this is true. Press I key in game.
 	this.started = false;
+	this.audioFiles = ["flap.wav", "squelch.wav", "fail.wav"];
+	this.audio = [];
 	
 	var sprite = this;									//Local reference to this Sprite instance.	
+	
+	for(var i = 0; i < this.audioFiles.length; i++){
+		var sound = document.createElement("audio");
+		sound.type = "audio/wav";
+		sound.src = this.audioFiles[i];
+		this.audio.push(sound);
+		document.body.appendChild(sound);
+	}								
 	
 	for(var i = 0; i < this.imageNames.length; i++){	//Load all the image frames
 		var img = new Image();							//Create a new image object.
@@ -255,7 +269,9 @@ function Sprite(game){
 		
 		//Push the image into the frame array.
 		this.imageFrames.push(img);
-	}	
+	}
+
+		
 	
 	function positionCentre(ctx){
 		sprite.x = (ctx.canvas.width / 2) - (sprite.w / 2);	
@@ -284,7 +300,7 @@ function Sprite(game){
 			this.vy = 0;								//Touched bottom so set velocity to zero.			
 			this.y = (game.ctx.canvas.height - this.h);	//Set y coordinate to prevent bottom of 
 														//sprite going below bottom of screen.
-		}		
+		}
 	};
 	
 	//All game asset objects must have a draw function.
@@ -304,6 +320,7 @@ function Sprite(game){
 			//So set the y velocity to a negative number
 			//to make the sprite go up the screen for a bit.
 			this.vy = -10;
+			this.audio[FLAP].play();
 			
 		} else if (keyCode == 73){						//keyCode 73 = I key was pressed.
 			
@@ -324,6 +341,8 @@ function Sprite(game){
 		this.frameIdx = 2;			//Switch to dead parrot image, no more flapping for you.
 		this.vy = 0;				//If parrot was on the rise, he certainly isn't now, 
 									//so stop any upward velocity.
+		this.audio[SQUELCH].play();
+		this.audio[FAIL].play();
 	}
 }
 
